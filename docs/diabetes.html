@@ -188,7 +188,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <section id="diabetes-data-set" class="level1">
 <h1>Diabetes Data Set</h1>
-<p>Originally from the National Institute of Diabetes and Digestive and Kidney Diseases, the Kaggle diabetes <a href="https://www.kaggle.com/datasets/mathchi/diabetes-data-set">dataset</a> is a popular and introductory modelling challenge with many Python and R notebooks. The outcome variable is binary with “0” being persons without diabetes and “1” being persons with diabetes. The task is to predict which persons are diabetic using basic physiological measurements like blood pressure and body mass. Four models are applied to the data and then ranked by accuracy. The four models are logistic regression, kknn, random forest (ranger) and xgboost.</p>
+<p>Originally from the National Institute of Diabetes and Digestive and Kidney Diseases, the Kaggle diabetes <a href="https://www.kaggle.com/datasets/mathchi/diabetes-data-set">dataset</a> is a popular and introductory modelling challenge, supported by many Python and R notebooks. The patients are women, at least 21 years old and of Pima Indian heritage. The outcome variable is binary with “0” being persons without diabetes and “1” being persons with diabetes. The task is to predict which persons are diabetic using basic physiological measurements like blood pressure and body mass.</p>
+<p>Here, four models are applied to the data and then ranked by area under the curve and accuracy. The four models are logistic regression, k-nearest-neighbor, random forest (ranger) and xgboost. Logistic regression was the best performing when measured by <code>roc_auc</code> (.855) and random forest model was the best performing when measured by <code>accuracy</code> (.772).</p>
 <div class="cell" data-hash="diabetes_cache/html/unnamed-chunk-3_c381690c9e73ff1b4baf1f3566f3a1f0">
 <details>
 <summary>Code</summary>
