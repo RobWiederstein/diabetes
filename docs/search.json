@@ -1,0 +1,30 @@
+[
+  {
+    "objectID": "diabetes.html",
+    "href": "diabetes.html",
+    "title": "Modeling the Kaggle Diabetes Dataset",
+    "section": "",
+    "text": "Originally from the National Institute of Diabetes and Digestive and Kidney Diseases, the Kaggle diabetes dataset is a popular and introductory modelling challenge with many Python and R notebooks. The outcome variable is binary with “0” being persons without diabetes and “1” being persons with diabetes. The task is to predict which persons are diabetic using basic physiological measurements like blood pressure and body mass. Four models are applied to the data and then ranked by accuracy. The four models are logistic regression, kknn, random forest (ranger) and xgboost.\n\n\nCode\n#\\ label: data-summary\ndescribe(diabetes) |> \nmutate(across(mean:se, ~round(.x, 2))) |> \nkbl() |>\nkable_styling(bootstrap_options = c(\"striped\", \"hover\", \"condensed\", \"responsive\"))\n\n\n\n\n \n  \n      \n    vars \n    n \n    mean \n    sd \n    median \n    trimmed \n    mad \n    min \n    max \n    range \n    skew \n    kurtosis \n    se \n  \n \n\n  \n    pregn \n    1 \n    768 \n    3.85 \n    3.37 \n    3.00 \n    3.46 \n    2.97 \n    0.00 \n    17.00 \n    17.00 \n    0.90 \n    0.14 \n    0.12 \n  \n  \n    gluco \n    2 \n    768 \n    123.87 \n    32.86 \n    123.00 \n    122.56 \n    38.55 \n    44.00 \n    199.00 \n    155.00 \n    0.25 \n    -0.58 \n    1.19 \n  \n  \n    bp \n    3 \n    768 \n    72.21 \n    11.53 \n    72.00 \n    72.19 \n    11.86 \n    24.00 \n    122.00 \n    98.00 \n    0.06 \n    0.67 \n    0.42 \n  \n  \n    skint \n    4 \n    768 \n    28.96 \n    10.52 \n    28.00 \n    28.59 \n    10.38 \n    7.00 \n    99.00 \n    92.00 \n    0.60 \n    1.84 \n    0.38 \n  \n  \n    insul \n    5 \n    768 \n    142.48 \n    109.39 \n    115.00 \n    124.84 \n    77.10 \n    14.00 \n    846.00 \n    832.00 \n    2.04 \n    6.05 \n    3.95 \n  \n  \n    bmi \n    6 \n    768 \n    32.51 \n    7.14 \n    32.60 \n    32.11 \n    7.41 \n    18.20 \n    67.10 \n    48.90 \n    0.68 \n    1.16 \n    0.26 \n  \n  \n    dpf \n    7 \n    768 \n    0.47 \n    0.33 \n    0.37 \n    0.42 \n    0.25 \n    0.08 \n    2.42 \n    2.34 \n    1.91 \n    5.53 \n    0.01 \n  \n  \n    age \n    8 \n    768 \n    33.24 \n    11.76 \n    29.00 \n    31.54 \n    10.38 \n    21.00 \n    81.00 \n    60.00 \n    1.13 \n    0.62 \n    0.42 \n  \n  \n    outcome* \n    9 \n    768 \n    1.35 \n    0.48 \n    1.00 \n    1.31 \n    0.00 \n    1.00 \n    2.00 \n    1.00 \n    0.63 \n    -1.60 \n    0.02"
+  },
+  {
+    "objectID": "diabetes.html#regression-metrics",
+    "href": "diabetes.html#regression-metrics",
+    "title": "Modeling the Kaggle Diabetes Dataset",
+    "section": "Regression Metrics",
+    "text": "Regression Metrics\nmetric_set allows for the return of multiple metrics and can be used to return metrics for regression analysis.\n\nregress_metrics <- metric_set(rmse, rsq, mae)"
+  },
+  {
+    "objectID": "diabetes.html#classification",
+    "href": "diabetes.html#classification",
+    "title": "Modeling the Kaggle Diabetes Dataset",
+    "section": "Classification",
+    "text": "Classification\nA classification is usually binary, but it can take on additional classes. A binary classification is where the outcome is one of two possible classes like positive vs. negative or red vs. green. The results often include a probability for each class, like .95 likelihood of occurrence and .05 likelihood of non-occurrence.\nFor “hard-class” predictions that deal with only the category, not the probability, the yardstick package contains four helpful functions: conf_mat() (confusion matrix), accuracy(), mcc() (Matthew’s Correlation Coefficient), and f_meas(). Three of them could be combined like:\n\nclass_metrics <- metric_set(accuracy, mcc, f_meas)\n\nFor outcome variables that have multiple classes, the yardstick package contains methods that can be implemented via the “estimator” argument in the sensitivity() function.\n\n# estimator can be \"macro_weighted\", \"macro\", \"micro\"\nsensitivity(results, obs, pred, estimator = \"macro_weighted\")"
+  },
+  {
+    "objectID": "diabetes.html#confusion-matrix",
+    "href": "diabetes.html#confusion-matrix",
+    "title": "Modeling the Kaggle Diabetes Dataset",
+    "section": "Confusion Matrix",
+    "text": "Confusion Matrix\nA confusion matrix, also known as an error matrix, reports the performance of a classification model. Where the outcome is one of two classes, the confusion matrix reports the number of observations that were correctly labelled and others that were not. More formally, the confusion matrix is a 2 by 2 table with the following entries:\n\ntrue positive (TP). A test result that correctly indicates the presence of a condition or characteristic.\ntrue negative (TN). A test result that correctly indicates the absence of a condition or characteristic.\nfalse positive (FP). A test result which wrongly indicates that a particular condition or attribute is present.\nfalse negative (FN). A test result which wrongly indicates that a particular condition or attribute is absent.\n\n\n\nCode\ndt <- tibble(t = c(1, 2, 1, 2), \n             f = c(1, 2, 2, 1), \n             fill = c(20, 20, 8, 8),\n             labels = c(\"F/N\", \"F/P\", \"T/P\", \"T/N\"))\ndt |> \n    ggplot() +\n    aes(factor(t), factor(f), fill = fill, label = labels) +\n    geom_tile() +\n    theme_tufte() +\n    theme(legend.position = \"none\",\n          axis.ticks = element_blank(),\n          axis.title = element_text(size = 20)) +\n    scale_x_discrete(name = \"observed\",\n                     labels = NULL,\n                     position = \"top\") +\n    scale_y_discrete(name = \"predicted\",\n                     labels = NULL) +\n    geom_text(color = \"white\", size = 5)\n\n\n\n\n\nA confusion/error matrix."
+  }
+]

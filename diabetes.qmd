@@ -1,0 +1,195 @@
+---
+title: "Modeling the Kaggle Diabetes Dataset"
+author: "Rob Wiederstein"
+date: eval `r Sys.Date()`
+format: 
+  html:
+    toc: true
+    toc-depth: 2
+    toc-title: "Contents"
+    code-fold: true
+    page-layout: full
+    fig-align: center
+execute: 
+  cache: true
+  warning: false
+  error: false
+---
+
+```{r}
+#| label: load_libraries
+#| include: false
+library(tidyverse)
+library(tidymodels)
+library(ggthemes)
+library(mice)
+library(ggplot2)
+library(colorspace)
+library(kableExtra)
+library(psych)
+```
+
+# Diabetes Data Set
+
+Originally from the National Institute of Diabetes and Digestive and Kidney Diseases, the Kaggle diabetes [dataset](https://www.kaggle.com/datasets/mathchi/diabetes-data-set) is a popular and introductory modelling challenge, supported by many Python and R notebooks. The patients are women, at least 21 years old and of Pima Indian heritage. The outcome variable is binary with "0" being persons without diabetes and "1" being persons with diabetes. The task is to predict which persons are diabetic using basic physiological measurements like blood pressure and body mass. 
+
+Here, four models are applied to the data and then ranked by area under the curve and accuracy. The four models are logistic regression, k-nearest-neighbor, random forest (ranger) and xgboost. Logistic regression was the best performing when measured by `roc_auc` (.855) and random forest model was the best performing when measured by `accuracy` (.772).
+
+```{r}
+#| label: import-data
+#| include: false
+diabetes <-readRDS("./data/diabetes.rds")
+```
+
+```{r}
+#\ label: data-summary
+describe(diabetes) |> 
+mutate(across(mean:se, ~round(.x, 2))) |> 
+kbl() |>
+kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+# Outliers
+
+The data set was thoroughly explored on Kaggle. Kagglers report that many values were recorded as a zero. For a category like blood pressure or glucose a "0" would be non-sensical. These values were changed to "NA" and imputed using the `mice` package. Despite imputation and scaling of the data, many outliers remain as shown below. To repeat once more, the data were scaled.
+
+```{r}
+#| label: outlier-plot
+#| fig-align: center
+#| fig-width: 8
+#| fig-height: 5
+# plot distributions ----
+colors <- qualitative_hcl(n = 8, palette = "Dark2")
+diabetes |>
+    select(!outcome) |>
+    mutate(across(pregn:age, ~scale(.x))) |>
+    pivot_longer(pregn:age) |>
+    group_by(name) |>
+    mutate(median = median(value)) |>
+    ungroup() |>
+    mutate(name = factor(name)) |>
+    mutate(name = forcats::fct_reorder(name, -median)) |>
+    ggplot() +
+    aes(name, value, group = name, fill = name) +
+    geom_violin(alpha = .5, draw_quantiles = c(0.5)) +
+    theme_tufte() +
+    scale_fill_manual(values = colors) +
+    labs(
+        title = "Scaled Distribution of Diabetes Predictors",
+         x = "",
+         y = "") +
+    theme(legend.position = "none")
+```
+
+# Assessing Model Effectivness
+
+The point of the assignment is to practice the tidy model flow and find the best performing models. Finding the best model means creating an objective measure for evaluation. The diabetes data is a classification problem, but all metrics will be discussed as a reminder for future efforts.
+
+For background, models generally come in two types. "An *inferential* model is used primarily to understand relationships, and typically emphasizes the choice (and validity) of probabilistic distributions and other generative qualities that define the model." In *predictive* models, its strength is more important, i.e. how close its predictions matched the observed data. Silge and Kuhn advise practitioners "developing inferential models . . . to use these techniques even when the model will not be used with the primary goal of prediction."
+
+The term *accuracy* is the proportion of the data that are predicted correctly. The Tidy Models book states that "two common metrics for *regression* models are the root mean squared error (RMSE) and the coefficient of determination (a.k.a. R2). The former measures *accuracy* while the latter measures *correlation* A model optimized for RMSE has more variability but has relatively uniform accuracy across the range of the outcome."
+
+## Regression Metrics
+
+`metric_set` allows for the return of multiple metrics and can be used to return metrics for regression analysis.
+
+```{r}
+#| label: regression-metrics
+#| eval: false
+#| code-fold: false
+regress_metrics <- metric_set(rmse, rsq, mae)
+```
+
+## Classification
+
+A classification is usually binary, but it can take on additional classes. A binary classification is where the outcome is one of two possible classes like positive vs. negative or red vs. green. The results often include a probability for each class, like .95 likelihood of occurrence and .05 likelihood of non-occurrence.
+
+For "hard-class" predictions that deal with only the category, not the probability, the yardstick package contains four helpful functions: `conf_mat()` (confusion matrix), `accuracy()`, `mcc()` (Matthew's Correlation Coefficient), and `f_meas()`. Three of them could be combined like:
+
+```{r}
+#| label: class-metrics
+#| eval: false
+#| echo: true
+#| code-fold: false
+class_metrics <- metric_set(accuracy, mcc, f_meas)
+```
+
+For outcome variables that have multiple classes, the yardstick package contains methods that can be implemented via the "estimator" argument in the `sensitivity()` function.
+
+```{r}
+#| label: multi-class-metrics
+#| eval: false
+#| code-fold: false
+# estimator can be "macro_weighted", "macro", "micro"
+sensitivity(results, obs, pred, estimator = "macro_weighted")
+```
+
+## Confusion Matrix
+
+A confusion matrix, also known as an error matrix, reports the performance of a classification model. Where the outcome is one of two classes, the confusion matrix reports the number of observations that were correctly labelled and others that were not. More formally, the confusion matrix is a 2 by 2 table with the following entries:
+
+-   true positive (TP). A test result that correctly indicates the presence of a condition or characteristic.
+
+-   true negative (TN). A test result that correctly indicates the absence of a condition or characteristic.
+
+-   false positive (FP). A test result which wrongly indicates that a particular condition or attribute is present.
+
+-   false negative (FN). A test result which wrongly indicates that a particular condition or attribute is absent.
+
+```{r}
+#| label: conf-matrix
+#| fig-cap: "A confusion/error matrix."
+dt <- tibble(t = c(1, 2, 1, 2), 
+             f = c(1, 2, 2, 1), 
+             fill = c(20, 20, 8, 8),
+             labels = c("F/N", "F/P", "T/P", "T/N"))
+dt |> 
+    ggplot() +
+    aes(factor(t), factor(f), fill = fill, label = labels) +
+    geom_tile() +
+    theme_tufte() +
+    theme(legend.position = "none",
+          axis.ticks = element_blank(),
+          axis.title = element_text(size = 20)) +
+    scale_x_discrete(name = "observed",
+                     labels = NULL,
+                     position = "top") +
+    scale_y_discrete(name = "predicted",
+                     labels = NULL) +
+    geom_text(color = "white", size = 5)
+```
+
+# Resampling Results
+
+The four models consisted of logistic regression (glmnet), K-nearest-neighbor, Random Forest (ranger), and xgboost.
+
+```{r}
+#| label: model-performance
+#| fig-width: 8
+#| fig-height: 5
+models <- readRDS("./data/model_performance.rds")
+colors <- colorspace::qualitative_hcl(n = 4, palette = "Dark2")
+models |>
+    ggplot() +
+    aes(1 - specificity, sensitivity, color = model) +
+    geom_line() +
+    geom_segment(x = 0, xend = 1,
+                 y = 0, yend = 1,
+                 color = "gray50",
+                 linetype = 3) +
+    coord_equal(ratio = 1) +
+    scale_color_manual(values = colors) +
+    geom_rangeframe() +
+    theme_tufte() +
+    labs(title = "Model Performance")
+```
+
+# Final Fit on Test Set
+
+```{r}
+#| label: table-final-fit
+results <- readRDS("./data/table_final_results.rds")
+results |> 
+    kbl(escape = F) |> 
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = T)
+```

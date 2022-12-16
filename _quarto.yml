@@ -1,0 +1,6 @@
+project:
+  title: "Diabetes"
+  type: website
+  output-dir: ./docs
+editor: visual
+
